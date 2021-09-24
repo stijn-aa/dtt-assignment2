@@ -1,20 +1,17 @@
 <template>
     <div class="container">
-        <Header
-            @click="this.methods.toggleMenu()"
-            headerText="Astroids Not Hitting Earth Today"
-            :loading="loading"
-        />
+            <Header
+                @click="this.methods.toggleMenu()"
+                headerText="Astroids Maybe Hitting Earth Someday"
+                :loading="loading"
+            />
         <div v-if="menuShow">
             <MenuComponent />
         </div>
         <div v-if="!menuShow" class="main">
-            <Dayselect @go="this.methods.createANHETfetch" :date="this.date" />
+            <Pageselect @go="this.methods.createAMHESfetch" :page="this.page" />
             <Sort @select="this.methods.sort" :sortBy="this.sortBy" />
-            <Items
-                :items="this.itemsArray"
-                origin="Astroids Not Hitting Earth Today"
-            />
+            <Items :items="this.itemsArray" origin="Astroids Maybe Hitting Earth Someday"/>
             <Footer />
         </div>
     </div>
@@ -22,7 +19,7 @@
 
 <script>
 import Header from '@/components/Header.vue'
-import Dayselect from '@/components/Dayselect.vue'
+import Pageselect from '@/components/Pageselect.vue'
 import Sort from '@/components/Sort.vue'
 import Items from '@/components/Items.vue'
 import MenuComponent from '@/components/Menu.vue'
@@ -32,7 +29,7 @@ export default {
     name: 'Home',
     components: {
         Header,
-        Dayselect,
+        Pageselect,
         Sort,
         Items,
         MenuComponent,
@@ -40,9 +37,8 @@ export default {
     },
     data () {
         return {
-            date: Date,
+            page: Number,
             itemsArray: [],
-            rawItemsArray: [],
             menuShow: false,
             loading: 'none',
             sortBy: 'time',
@@ -58,13 +54,11 @@ export default {
                             console.log(err)
                         })
                 },
-                itemParser: (rawItem) => {
+                itemParser: function (rawItem) {
                     const obj = {}
                     obj.id = rawItem.id
                     obj.name = rawItem.name
-                    obj.flyby = rawItem.close_approach_data[0].close_approach_date_full.split(
-                        ' '
-                    )[1]
+                    obj.flyby = rawItem.orbital_data.orbit_determination_date
                     obj.size = Math.round(
                         (rawItem.estimated_diameter.meters
                             .estimated_diameter_min +
@@ -74,21 +68,7 @@ export default {
                     )
                     obj.metric = ' Meter'
                     obj.haz = rawItem.is_potentially_hazardous_asteroid
-                    obj.relevantItems = this.methods.getReleventItems(rawItem)
-                    // console.log(obj.relevantItems[0])
                     return obj
-                },
-                getReleventItems: rawItem => {
-                    const relevance = this.rawItemsArray.sort(function (a, b) {
-                        const aSize = (a.estimated_diameter.meters.estimated_diameter_min + a.estimated_diameter.meters.estimated_diameter_max) / 2
-                        const bSize = (b.estimated_diameter.meters.estimated_diameter_min + b.estimated_diameter.meters.estimated_diameter_max) / 2
-                        const cSize = (rawItem.estimated_diameter.meters.estimated_diameter_min + rawItem.estimated_diameter.meters.estimated_diameter_max) / 2
-                        return Math.abs(cSize - aSize) - Math.abs(cSize - bSize)
-                    })
-                    const outputArray = []
-                    outputArray.push(relevance[1], relevance[2], relevance[3])
-                    // console.log(outputArray)
-                    return outputArray
                 },
                 sort: sortOption => {
                     if (sortOption) {
@@ -102,7 +82,6 @@ export default {
                         this.itemsArray.sort(this.methods.compareHaz)
                     }
                 },
-                compareCloseSize: function (a, b) {},
                 compareTime: function (a, b) {
                     const timeA = a.flyby.replace(':', '.')
                     const timeB = b.flyby.replace(':', '.')
@@ -120,27 +99,18 @@ export default {
                 compareHaz: function (a, b) {
                     return a.haz === b.haz ? 0 : a.haz ? -1 : 1
                 },
-                buildUrl: date => {
-                    const dd = String(date.getDate()).padStart(2, '0')
-                    const mm = String(date.getMonth() + 1).padStart(2, '0')
-                    const yyyy = date.getFullYear()
-                    const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${yyyy}-${mm}-${dd}&end_date=${yyyy}-${mm}-${dd}&api_key=0rzPjGgziJwSRBSerukevfNFkafd4UtL8WQ4xtAe`
+                buildUrl: (page) => {
+                    const url = `http://www.neowsapp.com/rest/v1/neo/browse?page=${page}&size=10&api_key=0rzPjGgziJwSRBSerukevfNFkafd4UtL8WQ4xtAe`
                     return url
                 },
-                createANHETfetch: async dateGot => {
-                    this.date = dateGot
-                    const url = this.methods.buildUrl(dateGot)
+                createAMHESfetch: async (page) => {
+                    this.page = page
+                    const url = this.methods.buildUrl(page)
                     this.loading = 'loading'
                     this.itemsArray = []
-                    this.rawItemsArray = []
                     this.methods.fetchData(url).then(data => {
-                        // console.log(data)
-                        const items =
-                            data.near_earth_objects[
-                                Object.keys(data.near_earth_objects)[0]
-                            ]
-                        this.rawItemsArray = items
-                        items.forEach(item => {
+                        console.log(data)
+                        data.near_earth_objects.forEach(item => {
                             this.itemsArray.push(this.methods.itemParser(item))
                         })
                         this.methods.sort()
@@ -154,8 +124,8 @@ export default {
         }
     },
     created () {
-        const newdate = new Date()
-        this.methods.createANHETfetch(newdate)
+        const page = 1
+        this.methods.createAMHESfetch(page)
     }
 }
 </script>
@@ -176,5 +146,4 @@ export default {
         font-size: 0.6rem;
     }
 }
-
 </style>
